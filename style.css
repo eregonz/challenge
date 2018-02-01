@@ -1,0 +1,23 @@
+.container {
+    width: 700px;
+    margin: auto;
+}
+
+.nav-tabs{
+    background-color: #f0f0f0;
+    margin-bottom: 30px;
+}
+
+.nav-item:hover {
+    background-color: #f9f9f9;
+}
+
+.alerts {
+    width: 700px;
+    margin: 30px auto;
+}
+
+#language-select {
+    max-width: 150px;
+    float: right;
+}

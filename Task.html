@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Rozi jednorozi</title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="style.css">
+    <script src="jquery-3.3.1.min.js"></script>
+    <script src="bootstrap.min.js"></script>
+    <script>
+        token = '';
+        teamId = 0;
+
+        $(document).on('click', '.nav-item', function() {
+            clearAlerts();
+        });
+
+        function showAlert(message, type) {
+            $('.alerts').append('<div class="alert alert-' + type + '" role="alert">' + message + '</div>');
+        }
+
+        function showErrors(errors) {
+            for (var i=0; i < errors.length; i++) {
+                showAlert(errors[i], 'danger');
+            }
+        }
+
+        function clearAlerts() {
+            $('.alerts').empty();
+        }
+
+        function disableButton(id) {
+            $(id).attr('disabled', true);
+        }
+
+        function enableButton(id) {
+            $(id).removeAttr('disabled');
+        }
+
+        function api(endpoint) {
+            return '/change/api/' + $('#language-combobox').val() + endpoint
+        }
+
+        function login() {
+            disableButton('#login-button');
+            $.ajax({
+                type: 'POST',
+                url: api('/account/login'),
+                data: JSON.stringify(
+                    {
+                        Teamname: $('#loginTeamname').val(),
+                        Password: $('#loginPassword').val()
+                    }),
+                dataType: 'json',
+                success: function (data) {
+                    clearAlerts();
+                    errors = data.Errors;
+                    if (errors.length == 0) {
+                        var result = JSON.parse(data.Result);
+                        token = result.AuthorizationToken;
+                        teamId = result.TeamId;
+                        showAlert('Logged in', 'success');
+                    } else {
+                        showAlert('Login failed', 'danger');
+                        showErrors(errors);
+                    }
+                },
+                error: function () {
+                    clearAlerts();
+                    showAlert('Login failed', 'danger');
+                    token = '';
+                    teamId = 0;
+                },
+                complete: function() {
+                    enableButton('#login-button');
+                }
+            });
+        }
+
+        function fetch() {
+            if (!token) {
+                clearAlerts();
+                showAlert('You are not logged in.', 'danger');
+                return;
+            }
+
+            disableButton('#fetch-button');
+            $.ajax({
+                type: 'GET',
+                url: api('/team/details/') + teamId,
+                headers: {'X-Authorization': token},
+                dataType: 'json',
+                success: function (data) {
+                    clearAlerts();
+                    errors = data.Errors;
+                    if (errors.length == 0) {
+                        showAlert('Fetch successful', 'success');
+                        var result = JSON.parse(data.Result);
+                        var members = result.Members;
+                        $('#displayname').val(result.TeamName);
+                        $('#displaymembers').find('.input-group').each(function (i, inputGroup) {
+                            var member = members[i];
+                            $(inputGroup).find('input').each(function (i, input) {
+                                $(input).val(member[$(input).data('key')]);
+                            });
+                            if(!$.isEmptyObject(member)) {
+                                members.push(member);
+                            }
+                        });
+
+                    } else {
+                        showAlert('Fetch failed', 'danger');
+                        showErrors(errors);
+                    }
+                },
+                error: function () {
+                    clearAlerts();
+                    showAlert('Fetch failed', 'danger');
+                    showErrors(errors);
+                },
+                complete: function() {
+                    enableButton('#fetch-button');
+                }
+            });
+        }
+
+        function register() {
+            disableButton('#register-button');
+            var members = [];
+            $('#members').find('.input-group').each(function (i, inputGroup) {
+                var member = {};
+                $(inputGroup).find('input').each(function (i, input) {
+                    var value = $(input).val();
+                    if (value) {
+                        member[$(input).data('key')] = value;
+                    }
+                });
+                if(!$.isEmptyObject(member)) {
+                    members.push(member);
+                }
+            });
+            $.ajax({
+                type: 'POST',
+                url: api('/account/register'),
+                data: JSON.stringify(
+                    {
+                        Teamname: $('#registerTeamname').val(),
+                        Password: $('#registerPassword').val(),
+                        Members: members
+                    }),
+                dataType: 'json',
+                success: function (data) {
+                    clearAlerts();
+                    errors = data.Errors;
+                    if (errors.length == 0) {
+                        showAlert('Registration successful', 'success');
+                    } else {
+                        showAlert('Registration failed', 'danger');
+                        showErrors(errors);
+                    }
+                },
+                error: function () {
+                    clearAlerts();
+                    showAlert('Registration failed', 'danger');
+                },
+                complete: function() {
+                    enableButton('#register-button');
+                }
+            });
+        }
+    </script>
+</head>
+<body>
+<ul class="nav nav-tabs nav-justified" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link active" href="#register" role="tab" data-toggle="tab">Register</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#login" role="tab" data-toggle="tab">Log in</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="#step3" role="tab" data-toggle="tab">Display</a>
+    </li>
+</ul>
+
+<!-- Tab panes -->
+<div class="tab-content container">
+    <div class="alerts"></div>
+    <div role="tabpanel" class="tab-pane active" id="register">
+        <div class="container">
+            <form>
+                <div class="form-group">
+                    <label for="registerTeamname">Team name</label>
+                    <input id="registerTeamname" type="text" class="form-control" placeholder="Enter team name">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Password</label>
+                    <input id="registerPassword" type="password" class="form-control" placeholder="Password">
+                </div>
+
+                <label>Members</label>
+                    <div id="members">
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="First name" data-key="Name">
+                            <input type="text" class="form-control" placeholder="Last name" data-key="Surname">
+                            <input type="text" class="form-control" placeholder="E-mail" data-key="Mail">
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="First name" data-key="Name">
+                            <input type="text" class="form-control" placeholder="Last name" data-key="Surname">
+                            <input type="text" class="form-control" placeholder="E-mail" data-key="Mail">
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="First name" data-key="Name">
+                            <input type="text" class="form-control" placeholder="Last name" data-key="Surname">
+                            <input type="text" class="form-control" placeholder="E-mail" data-key="Mail">
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="First name" data-key="Name">
+                            <input type="text" class="form-control" placeholder="Last name" data-key="Surname">
+                            <input type="text" class="form-control" placeholder="E-mail" data-key="Mail">
+                        </div>
+                    </div>
+                </div>
+                <button id="register-button" type="button" class="btn btn-primary" onclick="register()">Register</button>
+            </form>
+        </div>
+    </div>
+    <div role="tabpanel" class="tab-pane" id="login">
+        <div class="container">
+            <form id="loginform">
+                <div class="form-group">
+                    <label for="loginTeamname">Team name</label>
+                    <input type="text" class="form-control" id="loginTeamname" placeholder="Enter team name">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="Password">
+                </div>
+                <button id="login-button" type="button" class="btn btn-primary" onclick="login()">Log in</button>
+                <div class="alert alert-success" id="registeralert" role="alert" style="display:none;" >Message of the Alert</div>
+            </form>
+        </div>
+    </div>
+    <div role="tabpanel" class="tab-pane" id="step3">
+        <div class="container">
+            <form>
+                <div class="form-group">
+                    <label for="displayname">Team name</label>
+                    <input id="displayname" type="text" class="form-control" disabled>
+                </div>
+                <label>Members</label>
+                <div id="displaymembers">
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" data-key="Name" disabled>
+                            <input type="text" class="form-control" data-key="Surname" disabled>
+                            <input type="text" class="form-control" data-key="Mail" disabled>
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" data-key="Name" disabled>
+                            <input type="text" class="form-control" data-key="Surname" disabled>
+                            <input type="text" class="form-control" data-key="Mail" disabled>
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" data-key="Name" disabled>
+                            <input type="text" class="form-control" data-key="Surname" disabled>
+                            <input type="text" class="form-control" data-key="Mail" disabled>
+                        </div>
+                    </div>
+                    <div class="form-row form-group">
+                        <div class="input-group">
+                            <input type="text" class="form-control" data-key="Name" disabled>
+                            <input type="text" class="form-control" data-key="Surname" disabled>
+                            <input type="text" class="form-control" data-key="Mail" disabled>
+                        </div>
+                    </div>
+                </div>
+                <button id="fetch-button" type="button" class="btn btn-primary" onclick="fetch()">Fetch data</button>
+            </form>
+        </div>
+    </div>
+    <form id="language-select">
+        <label for="language-combobox">API language</label>
+        <select id="language-combobox" class="form-control" data-width="fit">
+            <option value='en'>English</option>
+            <option value='hr'>Croatian</option>
+        </select>
+    </form>
+</div>
+</body>
+</html>
